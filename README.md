@@ -366,3 +366,4 @@ For issues and questions:
 
 **Built with climate science and machine learning for Kenya's resilience.**
 # kenyan-climate-prediction-system-v1.0
+# kenyan-climate-prediction-system
