@@ -1,6 +1,6 @@
 // frontend/src/lib/api.ts
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = 'https://backend-production-8c49.up.railway.app';
 
 // Helper function for API calls with logging
 async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
