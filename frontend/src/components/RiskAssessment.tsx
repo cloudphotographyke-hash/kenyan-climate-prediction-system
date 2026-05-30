@@ -21,16 +21,28 @@ interface RiskData {
 export default function RiskAssessment({ location }: { location: string }) {
   const [risk, setRisk] = useState<RiskData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchRisk = async () => {
       setLoading(true)
+      setError(null)
       try {
         const response = await climateApi.getENSOImpact(location)
-        setRisk(response.risk_assessment)
-        console.log('Risk data:', response)
+        console.log('Risk API response:', response)
+        
+        // The response has risk_assessment property directly
+        if (response && response.risk_assessment) {
+          setRisk(response.risk_assessment)
+        } else if (response && !response.risk_assessment) {
+          console.error('Unexpected response structure:', response)
+          setError('Invalid risk data format')
+        } else {
+          setError('No risk data received')
+        }
       } catch (error) {
         console.error('Risk fetch error:', error)
+        setError('Failed to load risk assessment')
       } finally {
         setLoading(false)
       }
@@ -43,6 +55,14 @@ export default function RiskAssessment({ location }: { location: string }) {
     return (
       <div className="climate-card animate-pulse">
         <div className="h-48 bg-slate-700 rounded-lg"></div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="climate-card">
+        <div className="text-red-400 text-center py-8">{error}</div>
       </div>
     )
   }
@@ -63,6 +83,7 @@ export default function RiskAssessment({ location }: { location: string }) {
       case 'drought': return <Flame className="w-5 h-5" />
       case 'heavy_rainfall': return <Droplets className="w-5 h-5" />
       case 'flooding': return <Waves className="w-5 h-5" />
+      case 'frost': return <AlertTriangle className="w-5 h-5" />
       default: return <AlertTriangle className="w-5 h-5" />
     }
   }
@@ -104,7 +125,7 @@ export default function RiskAssessment({ location }: { location: string }) {
 
       {/* Detailed Risks */}
       <div className="space-y-3 mb-4">
-        {risk.detailed_risks.map((r, i) => (
+        {risk.detailed_risks && risk.detailed_risks.map((r, i) => (
           <div key={i} className={`p-3 rounded-lg border ${getRiskColor(r.risk_level)}`}>
             <div className="flex items-center gap-2 mb-1">
               {getRiskIcon(r.type)}
@@ -112,22 +133,27 @@ export default function RiskAssessment({ location }: { location: string }) {
               <span className="text-xs opacity-70 ml-auto">{(r.confidence * 100).toFixed(0)}% confidence</span>
             </div>
             <p className="text-xs opacity-80">{r.description}</p>
+            {r.affected_seasons && r.affected_seasons.length > 0 && (
+              <p className="text-xs opacity-60 mt-1">Affected: {r.affected_seasons.join(', ')}</p>
+            )}
           </div>
         ))}
       </div>
 
       {/* Recommendations */}
-      <div className="border-t border-slate-700 pt-4">
-        <p className="text-sm font-medium text-white mb-2">Recommendations</p>
-        <ul className="space-y-1">
-          {risk.recommendations.map((rec, i) => (
-            <li key={i} className="text-xs text-slate-300 flex items-start gap-2">
-              <span className="text-climate-green mt-0.5">•</span>
-              {rec}
-            </li>
-          ))}
-        </ul>
-      </div>
+      {risk.recommendations && risk.recommendations.length > 0 && (
+        <div className="border-t border-slate-700 pt-4">
+          <p className="text-sm font-medium text-white mb-2">Recommendations</p>
+          <ul className="space-y-1">
+            {risk.recommendations.map((rec, i) => (
+              <li key={i} className="text-xs text-slate-300 flex items-start gap-2">
+                <span className="text-climate-green mt-0.5">•</span>
+                {rec}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </motion.div>
   )
 }
