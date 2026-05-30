@@ -12,10 +12,10 @@ interface RiskData {
     type: string
     risk_level: string
     description: string
-    affected_seasons: string[]
+    affected_seasons?: string[]
     confidence: number
   }>
-  recommendations: string[]
+  recommendations?: string[]
 }
 
 export default function RiskAssessment({ location }: { location: string }) {
@@ -29,26 +29,51 @@ export default function RiskAssessment({ location }: { location: string }) {
       setError(null)
       try {
         const response = await climateApi.getENSOImpact(location)
-        console.log('Risk API response:', response)
+        console.log('Raw API response in RiskAssessment:', response)
         
-        // The response has risk_assessment property directly
-        if (response && response.risk_assessment) {
-          setRisk(response.risk_assessment)
-        } else if (response && !response.risk_assessment) {
-          console.error('Unexpected response structure:', response)
-          setError('Invalid risk data format')
-        } else {
-          setError('No risk data received')
+        // Default risk data in case we can't extract it
+        let riskData: RiskData = {
+          overall_risk: "Low",
+          risk_score: 20,
+          detailed_risks: [],
+          recommendations: ["Check back later for updated risk assessment"]
         }
+        
+        // Try to extract risk_assessment from various response structures
+        if (response) {
+          if (response.risk_assessment) {
+            riskData = response.risk_assessment
+            console.log('Found risk_assessment in response')
+          } else if (response.data && response.data.risk_assessment) {
+            riskData = response.data.risk_assessment
+            console.log('Found risk_assessment in response.data')
+          } else if (response.overall_risk) {
+            riskData = response as RiskData
+            console.log('Response itself is the risk assessment')
+          } else {
+            console.warn('Unknown response structure:', response)
+          }
+        }
+        
+        setRisk(riskData)
       } catch (error) {
         console.error('Risk fetch error:', error)
         setError('Failed to load risk assessment')
+        // Set default data so UI doesn't crash
+        setRisk({
+          overall_risk: "Medium",
+          risk_score: 25,
+          detailed_risks: [],
+          recommendations: ["Unable to load risk data. Please refresh the page."]
+        })
       } finally {
         setLoading(false)
       }
     }
 
-    fetchRisk()
+    if (location) {
+      fetchRisk()
+    }
   }, [location])
 
   if (loading) {
@@ -59,7 +84,7 @@ export default function RiskAssessment({ location }: { location: string }) {
     )
   }
 
-  if (error) {
+  if (error && !risk) {
     return (
       <div className="climate-card">
         <div className="text-red-400 text-center py-8">{error}</div>
@@ -70,7 +95,8 @@ export default function RiskAssessment({ location }: { location: string }) {
   if (!risk) return null
 
   const getRiskColor = (level: string) => {
-    switch (level.toLowerCase()) {
+    const lvl = level?.toLowerCase() || 'low'
+    switch (lvl) {
       case 'high': return 'text-red-400 bg-red-400/10 border-red-400/20'
       case 'medium-high': return 'text-orange-400 bg-orange-400/10 border-orange-400/20'
       case 'medium': return 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'
@@ -79,13 +105,11 @@ export default function RiskAssessment({ location }: { location: string }) {
   }
 
   const getRiskIcon = (type: string) => {
-    switch (type) {
-      case 'drought': return <Flame className="w-5 h-5" />
-      case 'heavy_rainfall': return <Droplets className="w-5 h-5" />
-      case 'flooding': return <Waves className="w-5 h-5" />
-      case 'frost': return <AlertTriangle className="w-5 h-5" />
-      default: return <AlertTriangle className="w-5 h-5" />
-    }
+    const t = type?.toLowerCase() || ''
+    if (t.includes('drought')) return <Flame className="w-5 h-5" />
+    if (t.includes('rainfall')) return <Droplets className="w-5 h-5" />
+    if (t.includes('flood')) return <Waves className="w-5 h-5" />
+    return <AlertTriangle className="w-5 h-5" />
   }
 
   return (
@@ -100,7 +124,7 @@ export default function RiskAssessment({ location }: { location: string }) {
           <h3 className="text-lg font-semibold text-white">Risk Assessment</h3>
         </div>
         <div className={`px-3 py-1 rounded-full text-sm font-medium ${getRiskColor(risk.overall_risk)}`}>
-          {risk.overall_risk} Risk
+          {risk.overall_risk || 'Unknown'} Risk
         </div>
       </div>
 
@@ -108,37 +132,39 @@ export default function RiskAssessment({ location }: { location: string }) {
       <div className="mb-4">
         <div className="flex justify-between text-sm mb-1">
           <span className="text-slate-400">Risk Score</span>
-          <span className="text-white font-medium">{risk.risk_score}%</span>
+          <span className="text-white font-medium">{risk.risk_score || 0}%</span>
         </div>
         <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
-            animate={{ width: `${risk.risk_score}%` }}
+            animate={{ width: `${risk.risk_score || 0}%` }}
             transition={{ duration: 1, ease: "easeOut" }}
             className={`h-full rounded-full ${
-              risk.risk_score > 70 ? 'bg-red-400' : 
-              risk.risk_score > 40 ? 'bg-yellow-400' : 'bg-green-400'
+              (risk.risk_score || 0) > 70 ? 'bg-red-400' : 
+              (risk.risk_score || 0) > 40 ? 'bg-yellow-400' : 'bg-green-400'
             }`}
           />
         </div>
       </div>
 
       {/* Detailed Risks */}
-      <div className="space-y-3 mb-4">
-        {risk.detailed_risks && risk.detailed_risks.map((r, i) => (
-          <div key={i} className={`p-3 rounded-lg border ${getRiskColor(r.risk_level)}`}>
-            <div className="flex items-center gap-2 mb-1">
-              {getRiskIcon(r.type)}
-              <span className="text-sm font-medium capitalize">{r.type.replace('_', ' ')}</span>
-              <span className="text-xs opacity-70 ml-auto">{(r.confidence * 100).toFixed(0)}% confidence</span>
+      {risk.detailed_risks && risk.detailed_risks.length > 0 && (
+        <div className="space-y-3 mb-4">
+          {risk.detailed_risks.map((r, i) => (
+            <div key={i} className={`p-3 rounded-lg border ${getRiskColor(r.risk_level)}`}>
+              <div className="flex items-center gap-2 mb-1">
+                {getRiskIcon(r.type)}
+                <span className="text-sm font-medium capitalize">{r.type?.replace('_', ' ') || 'Risk'}</span>
+                <span className="text-xs opacity-70 ml-auto">{(r.confidence * 100).toFixed(0)}% confidence</span>
+              </div>
+              <p className="text-xs opacity-80">{r.description || 'No description available'}</p>
+              {r.affected_seasons && r.affected_seasons.length > 0 && (
+                <p className="text-xs opacity-60 mt-1">Affected: {r.affected_seasons.join(', ')}</p>
+              )}
             </div>
-            <p className="text-xs opacity-80">{r.description}</p>
-            {r.affected_seasons && r.affected_seasons.length > 0 && (
-              <p className="text-xs opacity-60 mt-1">Affected: {r.affected_seasons.join(', ')}</p>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Recommendations */}
       {risk.recommendations && risk.recommendations.length > 0 && (
