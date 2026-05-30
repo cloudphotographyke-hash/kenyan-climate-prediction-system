@@ -115,3 +115,14 @@ async def get_enso_status():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# Update CORS middleware to allow all origins (for testing)
+# Find the CORS section and update it to:
+
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=["*"],  # This allows all origins
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
