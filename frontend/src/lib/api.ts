@@ -1,8 +1,9 @@
 // frontend/src/lib/api.ts
 
+// HARDCODED for production - using Railway backend
 const API_BASE_URL = 'https://backend-production-8c49.up.railway.app';
 
-// Helper function for API calls with logging
+// Helper function for API calls
 async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
   console.log(`API Call: ${options?.method || 'GET'} ${url}`);
@@ -40,57 +41,28 @@ export const weatherApi = {
     apiCall(`/api/weather/historical/${encodeURIComponent(location)}?start_date=${startDate}&end_date=${endDate}`)
 };
 
-// Climate API with enhanced error handling
+// Climate API
 export const climateApi = {
-  getENSOCurrent: async () => {
-    return apiCall('/api/climate/enso/current');
-  },
+  getENSOCurrent: () => 
+    apiCall('/api/climate/enso/current'),
   
-  getENSOHistory: async (years: number = 10) => {
-    return apiCall(`/api/climate/enso/history?years=${years}`);
-  },
+  getENSOHistory: (years: number = 10) => 
+    apiCall(`/api/climate/enso/history?years=${years}`),
   
-  getENSOImpact: async (location: string) => {
-    const response = await apiCall(`/api/climate/enso/impact/${encodeURIComponent(location)}`);
-    console.log('ENSO Impact - raw response:', response);
-    
-    // Ensure we return a consistent structure
-    if (response && typeof response === 'object') {
-      return response;
-    }
-    return { risk_assessment: null };
-  },
+  getENSOImpact: (location: string) => 
+    apiCall(`/api/climate/enso/impact/${encodeURIComponent(location)}`),
   
-  getSeasonalOutlook: async (location: string) => {
-    return apiCall(`/api/climate/seasonal/${encodeURIComponent(location)}`);
-  },
+  getSeasonalOutlook: (location: string) => 
+    apiCall(`/api/climate/seasonal/${encodeURIComponent(location)}`),
   
-  getAnomalies: async (location: string, period: string = '1y') => {
-    return apiCall(`/api/climate/anomalies/${encodeURIComponent(location)}?period=${period}`);
-  }
+  getAnomalies: (location: string, period: string = '1y') => 
+    apiCall(`/api/climate/anomalies/${encodeURIComponent(location)}?period=${period}`)
 };
 
-// Predictions API with data validation
+// Predictions API
 export const predictionsApi = {
-  getRainfall: async (location: string, months: number = 3) => {
-    const data = await apiCall(`/api/predictions/rainfall/${encodeURIComponent(location)}?months=${months}`);
-    console.log('Rainfall prediction data:', data);
-    
-    // Validate and ensure monthly_breakdown exists
-    if (!data || !data.monthly_breakdown) {
-      console.warn('Rainfall data missing monthly_breakdown, using fallback');
-      return {
-        monthly_breakdown: Array(months).fill(null).map((_, i) => ({
-          month: new Date().getMonth() + i + 1,
-          predicted_mm: 0,
-          confidence: 0.5
-        })),
-        total_predicted_mm: 0,
-        confidence_score: 0.5
-      };
-    }
-    return data;
-  },
+  getRainfall: (location: string, months: number = 3) => 
+    apiCall(`/api/predictions/rainfall/${encodeURIComponent(location)}?months=${months}`),
   
   getDrought: (location: string) => 
     apiCall(`/api/predictions/drought/${encodeURIComponent(location)}`),
@@ -98,26 +70,8 @@ export const predictionsApi = {
   getFlood: (location: string) => 
     apiCall(`/api/predictions/flood/${encodeURIComponent(location)}`),
   
-  getTemperature: async (location: string, months: number = 3) => {
-    const data = await apiCall(`/api/predictions/temperature/${encodeURIComponent(location)}?months=${months}`);
-    console.log('Temperature prediction data:', data);
-    
-    // Validate and ensure monthly_breakdown exists
-    if (!data || !data.monthly_breakdown) {
-      console.warn('Temperature data missing monthly_breakdown, using fallback');
-      return {
-        monthly_breakdown: Array(months).fill(null).map((_, i) => ({
-          month: new Date().getMonth() + i + 1,
-          predicted_temp_c: 20,
-          anomaly_c: 0,
-          confidence: 0.5
-        })),
-        average_predicted_temp_c: 20,
-        confidence_score: 0.5
-      };
-    }
-    return data;
-  },
+  getTemperature: (location: string, months: number = 3) => 
+    apiCall(`/api/predictions/temperature/${encodeURIComponent(location)}?months=${months}`),
   
   getComprehensive: (location: string) => 
     apiCall(`/api/predictions/comprehensive/${encodeURIComponent(location)}`),
@@ -168,7 +122,7 @@ export const analyticsApi = {
     apiCall('/api/analytics/popular')
 };
 
-// Default export for convenience
+// Default export
 const api = {
   weatherApi,
   climateApi,
