@@ -29,42 +29,40 @@ export default function RiskAssessment({ location }: { location: string }) {
       setError(null)
       try {
         const response = await climateApi.getENSOImpact(location)
-        console.log('Raw API response in RiskAssessment:', response)
+        console.log('Full API response:', response)
         
-        // Default risk data in case we can't extract it
-        let riskData: RiskData = {
-          overall_risk: "Low",
-          risk_score: 20,
-          detailed_risks: [],
-          recommendations: ["Check back later for updated risk assessment"]
+        // The API returns the data directly with risk_assessment property
+        let riskData: RiskData | null = null
+        
+        if (response && response.risk_assessment) {
+          riskData = response.risk_assessment
+          console.log('Found risk_assessment:', riskData)
+        } else if (response && response.data && response.data.risk_assessment) {
+          riskData = response.data.risk_assessment
+        } else if (response && response.overall_risk) {
+          riskData = response as RiskData
         }
         
-        // Try to extract risk_assessment from various response structures
-        if (response) {
-          if (response.risk_assessment) {
-            riskData = response.risk_assessment
-            console.log('Found risk_assessment in response')
-          } else if (response.data && response.data.risk_assessment) {
-            riskData = response.data.risk_assessment
-            console.log('Found risk_assessment in response.data')
-          } else if (response.overall_risk) {
-            riskData = response as RiskData
-            console.log('Response itself is the risk assessment')
-          } else {
-            console.warn('Unknown response structure:', response)
-          }
+        if (riskData) {
+          setRisk(riskData)
+        } else {
+          console.error('No risk assessment found in response:', response)
+          // Set default data to prevent UI crash
+          setRisk({
+            overall_risk: "Medium",
+            risk_score: 25,
+            detailed_risks: [],
+            recommendations: ["Risk data temporarily unavailable"]
+          })
         }
-        
-        setRisk(riskData)
       } catch (error) {
         console.error('Risk fetch error:', error)
         setError('Failed to load risk assessment')
-        // Set default data so UI doesn't crash
         setRisk({
           overall_risk: "Medium",
           risk_score: 25,
           detailed_risks: [],
-          recommendations: ["Unable to load risk data. Please refresh the page."]
+          recommendations: ["Unable to load risk data. Please refresh."]
         })
       } finally {
         setLoading(false)
@@ -128,7 +126,6 @@ export default function RiskAssessment({ location }: { location: string }) {
         </div>
       </div>
 
-      {/* Risk Score Bar */}
       <div className="mb-4">
         <div className="flex justify-between text-sm mb-1">
           <span className="text-slate-400">Risk Score</span>
@@ -147,7 +144,6 @@ export default function RiskAssessment({ location }: { location: string }) {
         </div>
       </div>
 
-      {/* Detailed Risks */}
       {risk.detailed_risks && risk.detailed_risks.length > 0 && (
         <div className="space-y-3 mb-4">
           {risk.detailed_risks.map((r, i) => (
@@ -166,7 +162,6 @@ export default function RiskAssessment({ location }: { location: string }) {
         </div>
       )}
 
-      {/* Recommendations */}
       {risk.recommendations && risk.recommendations.length > 0 && (
         <div className="border-t border-slate-700 pt-4">
           <p className="text-sm font-medium text-white mb-2">Recommendations</p>
