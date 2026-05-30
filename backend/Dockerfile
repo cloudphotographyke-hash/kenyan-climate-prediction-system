@@ -2,18 +2,31 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies for psycopg2 and other packages
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
+# Copy requirements first (for better caching)
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir \
+    fastapi==0.104.1 \
+    uvicorn[standard]==0.24.0 \
+    asyncpg==0.29.0 \
+    redis==5.0.1 \
+    httpx==0.25.1 \
+    python-dotenv==1.0.0 \
+    numpy==1.24.3 \
+    pandas==2.1.3 \
+    joblib==1.3.2 \
+    apscheduler==3.10.4 \
+    pydantic==2.5.0 \
+    python-multipart==0.0.6
 
 # Copy application code
 COPY . .
