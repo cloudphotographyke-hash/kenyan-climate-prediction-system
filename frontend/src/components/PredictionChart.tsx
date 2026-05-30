@@ -14,7 +14,7 @@ import {
   Legend,
   Filler
 } from 'chart.js'
-import { Line, Bar } from 'react-chartjs-2'
+import { Line } from 'react-chartjs-2'
 import { predictionsApi } from '@/lib/api'
 import { Droplets, Thermometer } from 'lucide-react'
 
@@ -44,22 +44,42 @@ export default function PredictionChart({ location }: { location: string }) {
   const [data, setData] = useState<PredictionData | null>(null)
   const [activeTab, setActiveTab] = useState<'rainfall' | 'temperature'>('rainfall')
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPredictions = async () => {
       setLoading(true)
+      setError(null)
       try {
-        const [rainfallRes, tempRes] = await Promise.all([
-          predictionsApi.getRainfall(location, 6),
-          predictionsApi.getTemperature(location, 6)
-        ])
+        // apiCall returns the data directly, not wrapped in a data property
+        const rainfallData = await predictionsApi.getRainfall(location, 6)
+        const temperatureData = await predictionsApi.getTemperature(location, 6)
+
+        console.log('Rainfall data:', rainfallData)
+        console.log('Temperature data:', temperatureData)
+
+        // Check if data has the expected structure
+        if (!rainfallData?.monthly_breakdown) {
+          console.error('Rainfall data missing monthly_breakdown:', rainfallData)
+          setError('Invalid rainfall data format')
+          setLoading(false)
+          return
+        }
+
+        if (!temperatureData?.monthly_breakdown) {
+          console.error('Temperature data missing monthly_breakdown:', temperatureData)
+          setError('Invalid temperature data format')
+          setLoading(false)
+          return
+        }
 
         setData({
-          rainfall: rainfallRes.data,
-          temperature: tempRes.data
+          rainfall: rainfallData,
+          temperature: temperatureData
         })
       } catch (error) {
         console.error('Prediction fetch error:', error)
+        setError('Failed to load predictions')
       } finally {
         setLoading(false)
       }
@@ -76,12 +96,31 @@ export default function PredictionChart({ location }: { location: string }) {
     )
   }
 
-  if (!data) return null
+  if (error) {
+    return (
+      <div className="climate-card">
+        <div className="text-red-400 text-center py-8">{error}</div>
+      </div>
+    )
+  }
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  if (!data || !data.rainfall?.monthly_breakdown?.length) {
+    return (
+      <div className="climate-card">
+        <div className="text-slate-400 text-center py-8">No prediction data available</div>
+      </div>
+    )
+  }
+
+  // Month names
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  
+  // Create labels based on the months from the API
+  const rainfallLabels = data.rainfall.monthly_breakdown.map(m => monthNames[m.month - 1])
+  const temperatureLabels = data.temperature.monthly_breakdown.map(m => monthNames[m.month - 1])
 
   const rainfallData = {
-    labels: data.rainfall.monthly_breakdown.map(m => months[m.month - 1]),
+    labels: rainfallLabels,
     datasets: [
       {
         label: 'Predicted Rainfall (mm)',
@@ -96,7 +135,7 @@ export default function PredictionChart({ location }: { location: string }) {
   }
 
   const temperatureData = {
-    labels: data.temperature.monthly_breakdown.map(m => months[m.month - 1]),
+    labels: temperatureLabels,
     datasets: [
       {
         label: 'Predicted Temperature (°C)',
@@ -126,6 +165,10 @@ export default function PredictionChart({ location }: { location: string }) {
     plugins: {
       legend: {
         labels: { color: '#94a3b8' }
+      },
+      tooltip: {
+        mode: 'index' as const,
+        intersect: false,
       }
     },
     scales: {
@@ -139,6 +182,15 @@ export default function PredictionChart({ location }: { location: string }) {
       }
     }
   }
+
+  // Calculate averages safely
+  const avgConfidence = data.rainfall.monthly_breakdown.length > 0
+    ? Math.round(data.rainfall.monthly_breakdown.reduce((a, b) => a + (b.confidence || 0), 0) / data.rainfall.monthly_breakdown.length * 100)
+    : 0
+
+  const avgTemp = data.temperature.monthly_breakdown.length > 0
+    ? Math.round(data.temperature.monthly_breakdown.reduce((a, b) => a + b.predicted_temp_c, 0) / data.temperature.monthly_breakdown.length)
+    : 0
 
   return (
     <motion.div
@@ -185,19 +237,15 @@ export default function PredictionChart({ location }: { location: string }) {
       <div className="mt-4 grid grid-cols-3 gap-4">
         <div className="bg-slate-800/50 rounded-lg p-3 text-center">
           <p className="text-xs text-slate-400">Total Rainfall</p>
-          <p className="text-lg font-bold text-climate-blue">{data.rainfall.total_predicted_mm}mm</p>
+          <p className="text-lg font-bold text-climate-blue">{data.rainfall.total_predicted_mm || 0}mm</p>
         </div>
         <div className="bg-slate-800/50 rounded-lg p-3 text-center">
           <p className="text-xs text-slate-400">Avg Temperature</p>
-          <p className="text-lg font-bold text-red-400">
-            {Math.round(data.temperature.monthly_breakdown.reduce((a, b) => a + b.predicted_temp_c, 0) / data.temperature.monthly_breakdown.length)}°C
-          </p>
+          <p className="text-lg font-bold text-red-400">{avgTemp}°C</p>
         </div>
         <div className="bg-slate-800/50 rounded-lg p-3 text-center">
           <p className="text-xs text-slate-400">Confidence</p>
-          <p className="text-lg font-bold text-green-400">
-            {Math.round(data.rainfall.monthly_breakdown.reduce((a, b) => a + b.confidence, 0) / data.rainfall.monthly_breakdown.length * 100)}%
-          </p>
+          <p className="text-lg font-bold text-green-400">{avgConfidence}%</p>
         </div>
       </div>
     </motion.div>

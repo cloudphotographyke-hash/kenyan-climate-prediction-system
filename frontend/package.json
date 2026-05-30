@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:ignore-types": "next build --no-lint --no-typescript-checking",
     "start": "next start",
     "lint": "next lint"
   },

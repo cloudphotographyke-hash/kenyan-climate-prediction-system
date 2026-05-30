@@ -43,6 +43,8 @@ services:
     container_name: kenya-climate-backend
     env_file:
       - .env
+    environment:
+    - CORS_ORIGINS=http://localhost:3000,http://localhost:8000
     ports:
       - "8000:8000"
     depends_on:

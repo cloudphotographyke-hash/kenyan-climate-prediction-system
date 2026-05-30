@@ -27,7 +27,8 @@ export default function RiskAssessment({ location }: { location: string }) {
       setLoading(true)
       try {
         const response = await climateApi.getENSOImpact(location)
-        setRisk(response.data.risk_assessment)
+        setRisk(response.risk_assessment)
+        console.log('Risk data:', response)
       } catch (error) {
         console.error('Risk fetch error:', error)
       } finally {
