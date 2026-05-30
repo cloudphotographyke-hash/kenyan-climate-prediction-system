@@ -1,6 +1,6 @@
 // frontend/src/lib/api.ts
 
-// HARDCODED for production - using Railway backend
+// HARDCODED for production - using Railway backend (confirmed working)
 const API_BASE_URL = 'https://backend-production-8c49.up.railway.app';
 
 // Helper function for API calls
